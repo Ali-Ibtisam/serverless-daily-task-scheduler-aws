@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Daily Task Scheduler</title>
+  <meta name="description" content="AWS serverless daily task scheduler" />
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: rgba(255,255,255,.88);
+      --panel-solid: #ffffff;
+      --text: #172033;
+      --muted: #6f7890;
+      --line: #e7eaf2;
+      --primary: #5b5cf0;
+      --primary-2: #7c5cff;
+      --success: #1fa873;
+      --warning: #d99016;
+      --danger: #e45167;
+      --shadow: 0 18px 50px rgba(34, 45, 92, .10);
+      --radius: 20px;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(91,92,240,.12), transparent 32%),
+        radial-gradient(circle at 95% 10%, rgba(124,92,255,.10), transparent 28%),
+        var(--bg);
+    }
+
+    .app {
+      width: min(1440px, calc(100% - 32px));
+      margin: 16px auto;
+      display: grid;
+      grid-template-columns: 235px 1fr;
+      min-height: calc(100vh - 32px);
+      border-radius: 26px;
+      overflow: hidden;
+      box-shadow: var(--shadow);
+      background: rgba(255,255,255,.45);
+      backdrop-filter: blur(18px);
+    }
+
+    .sidebar {
+      background: linear-gradient(180deg, #151d3b 0%, #1f2a53 100%);
+      color: #fff;
+      padding: 28px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #6c63ff, #38bdf8);
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      box-shadow: 0 10px 22px rgba(81,95,255,.35);
+    }
+
+    .brand h2 {
+      margin: 0;
+      font-size: 17px;
+      line-height: 1.1;
+    }
+
+    .brand small {
+      color: rgba(255,255,255,.58);
+    }
+
+    .nav {
+      display: grid;
+      gap: 9px;
+    }
+
+    .nav a {
+      color: rgba(255,255,255,.72);
+      text-decoration: none;
+      padding: 12px 14px;
+      border-radius: 12px;
+      transition: .2s ease;
+      font-size: 14px;
+    }
+
+    .nav a:hover, .nav a.active {
+      color: #fff;
+      background: rgba(255,255,255,.10);
+      transform: translateX(2px);
+    }
+
+    .sidebar-note {
+      margin-top: auto;
+      padding: 16px;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 16px;
+      background: rgba(255,255,255,.06);
+      color: rgba(255,255,255,.78);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .content {
+      padding: 26px;
+      overflow: auto;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 20px;
+    }
+
+    .topbar h1 {
+      margin: 0;
+      font-size: clamp(24px, 3vw, 34px);
+    }
+
+    .topbar p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .status-chip {
+      background: #eef2ff;
+      color: #4d4edb;
+      border: 1px solid #dfe3ff;
+      padding: 10px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .hero {
+      background:
+        linear-gradient(120deg, rgba(91,92,240,.95), rgba(124,92,255,.88)),
+        #635bff;
+      color: white;
+      border-radius: 24px;
+      padding: 28px;
+      display: grid;
+      grid-template-columns: 1.35fr .65fr;
+      gap: 20px;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before,
+    .hero::after {
+      content: "";
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(3px);
+      opacity: .22;
+      animation: float 8s ease-in-out infinite;
+    }
+
+    .hero::before {
+      width: 230px;
+      height: 230px;
+      right: -45px;
+      top: -75px;
+      background: white;
+    }
+
+    .hero::after {
+      width: 110px;
+      height: 110px;
+      right: 170px;
+      bottom: -55px;
+      background: #7dd3fc;
+      animation-delay: 1.8s;
+    }
+
+    @keyframes float {
+      0%,100% { transform: translateY(0); }
+      50% { transform: translateY(12px); }
+    }
+
+    .hero h2 {
+      margin: 0 0 10px;
+      font-size: clamp(26px, 3vw, 40px);
+      max-width: 620px;
+    }
+
+    .hero p {
+      margin: 0;
+      max-width: 600px;
+      color: rgba(255,255,255,.80);
+      line-height: 1.6;
+    }
+
+    .hero-visual {
+      position: relative;
+      z-index: 1;
+      justify-self: end;
+      width: 190px;
+      height: 120px;
+      border-radius: 24px;
+      background: rgba(255,255,255,.12);
+      border: 1px solid rgba(255,255,255,.20);
+      display: grid;
+      place-items: center;
+      backdrop-filter: blur(8px);
+    }
+
+    .hero-visual .calendar {
+      width: 110px;
+      height: 82px;
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 18px 35px rgba(14,20,60,.25);
+      padding: 13px;
+      color: #3d46a8;
+      transform: rotate(-3deg);
+    }
+
+    .calendar .bar {
+      height: 8px;
+      width: 62%;
+      border-radius: 6px;
+      background: #dbe3ff;
+      margin-bottom: 10px;
+    }
+
+    .calendar .line {
+      height: 6px;
+      border-radius: 6px;
+      background: #edf0f9;
+      margin: 7px 0;
+    }
+
+    .calendar .line.active {
+      width: 75%;
+      background: #7d82ff;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      margin: 18px 0;
+    }
+
+    .stat {
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,.75);
+      box-shadow: 0 10px 28px rgba(37,48,88,.06);
+      border-radius: 18px;
+      padding: 18px;
+    }
+
+    .stat span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .stat strong {
+      display: block;
+      font-size: 28px;
+      margin-top: 7px;
+    }
+
+    .workspace {
+      display: grid;
+      grid-template-columns: minmax(320px, 0.9fr) minmax(420px, 1.2fr);
+      gap: 18px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(255,255,255,.75);
+      border-radius: var(--radius);
+      box-shadow: 0 12px 32px rgba(37,48,88,.07);
+      padding: 22px;
+    }
+
+    .panel h3 {
+      margin: 0;
+      font-size: 18px;
+    }
+
+    .panel-subtitle {
+      color: var(--muted);
+      font-size: 13px;
+      margin: 6px 0 18px;
+    }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 13px;
+    }
+
+    .field.full { grid-column: 1 / -1; }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      font-size: 12px;
+      color: #596175;
+      font-weight: 700;
+    }
+
+    input, select {
+      width: 100%;
+      border: 1px solid #dde2ed;
+      background: #fbfcff;
+      border-radius: 12px;
+      padding: 12px 13px;
+      outline: none;
+      color: var(--text);
+      transition: .2s ease;
+    }
+
+    input:focus, select:focus {
+      border-color: #8f92ff;
+      box-shadow: 0 0 0 4px rgba(91,92,240,.10);
+    }
+
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      margin-top: 8px;
+    }
+
+    .checkbox-row input { width: auto; }
+
+    .btn {
+      border: 0;
+      border-radius: 13px;
+      padding: 13px 16px;
+      font-weight: 750;
+      cursor: pointer;
+      transition: .2s ease;
+    }
+
+    .btn:hover { transform: translateY(-1px); }
+
+    .btn-primary {
+      width: 100%;
+      margin-top: 16px;
+      background: linear-gradient(135deg, var(--primary), var(--primary-2));
+      color: white;
+      box-shadow: 0 12px 22px rgba(91,92,240,.22);
+    }
+
+    .btn-soft {
+      background: #eef1ff;
+      color: #5355d8;
+      padding: 8px 11px;
+      font-size: 12px;
+    }
+
+    .task-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+    }
+
+    .task-list {
+      display: grid;
+      gap: 11px;
+      max-height: 550px;
+      overflow: auto;
+      padding-right: 3px;
+    }
+
+    .task {
+      background: #fbfcff;
+      border: 1px solid #e8ebf3;
+      border-radius: 15px;
+      padding: 15px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      transition: .2s ease;
+    }
+
+    .task:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 22px rgba(27,35,70,.06);
+    }
+
+    .task-title {
+      font-weight: 800;
+      margin-bottom: 5px;
+    }
+
+    .task-meta {
+      font-size: 12px;
+      color: var(--muted);
+      display: flex;
+      gap: 9px;
+      flex-wrap: wrap;
+    }
+
+    .badges {
+      display: flex;
+      align-items: flex-start;
+      gap: 7px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .badge {
+      padding: 6px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .high { background: #fff0f2; color: #d43d56; }
+    .medium { background: #fff6df; color: #b87508; }
+    .low { background: #e9f8f1; color: #148059; }
+    .completed { background: #eaf8f3; color: #16805e; }
+    .pending { background: #eef1ff; color: #5758d8; }
+
+    .task-actions {
+      grid-column: 1 / -1;
+      display: flex;
+      justify-content: flex-end;
+      margin-top: 2px;
+    }
+
+    .empty {
+      color: var(--muted);
+      text-align: center;
+      padding: 40px 15px;
+      border: 1px dashed #d8ddeb;
+      border-radius: 15px;
+    }
+
+    .toast {
+      position: fixed;
+      right: 26px;
+      bottom: 26px;
+      background: #18213b;
+      color: white;
+      padding: 13px 16px;
+      border-radius: 13px;
+      box-shadow: var(--shadow);
+      opacity: 0;
+      transform: translateY(14px);
+      pointer-events: none;
+      transition: .25s ease;
+      z-index: 1000;
+      max-width: 360px;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .loading {
+      opacity: .65;
+      pointer-events: none;
+    }
+
+    @media (max-width: 1040px) {
+      .app { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .workspace { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 700px) {
+      .app { width: 100%; margin: 0; border-radius: 0; min-height: 100vh; }
+      .content { padding: 18px; }
+      .hero { grid-template-columns: 1fr; }
+      .hero-visual { display: none; }
+      .stats { grid-template-columns: 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+      .field.full { grid-column: auto; }
+      .topbar { align-items: flex-start; }
+      .status-chip { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">✓</div>
+        <div>
+          <h2>Daily Task<br>Scheduler</h2>
+          <small>Built on AWS</small>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <a href="#" class="active">Dashboard</a>
+        <a href="#add-task">Add task</a>
+        <a href="#tasks">My tasks</a>
+      </nav>
+
+      <div class="sidebar-note">
+        Serverless architecture using API Gateway, Lambda and DynamoDB.
+      </div>
+    </aside>
+
+    <main class="content">
+      <header class="topbar">
+        <div>
+          <h1>Daily Task Scheduler</h1>
+          <p>Plan clearly. Prioritize intelligently. Stay on track.</p>
+        </div>
+        <div class="status-chip">AWS Backend Connected</div>
+      </header>
+
+      <section class="hero">
+        <div>
+          <h2>Turn your tasks into a focused day.</h2>
+          <p>
+            Create tasks, organize your schedule and track progress from one clean workspace.
+            AI scheduling can be added later with Amazon Bedrock.
+          </p>
+        </div>
+        <div class="hero-visual" aria-hidden="true">
+          <div class="calendar">
+            <div class="bar"></div>
+            <div class="line active"></div>
+            <div class="line"></div>
+            <div class="line"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="stats">
+        <div class="stat">
+          <span>Total tasks</span>
+          <strong id="totalCount">0</strong>
+        </div>
+        <div class="stat">
+          <span>Completed</span>
+          <strong id="completedCount">0</strong>
+        </div>
+        <div class="stat">
+          <span>Pending</span>
+          <strong id="pendingCount">0</strong>
+        </div>
+      </section>
+
+      <section class="workspace">
+        <div class="panel" id="add-task">
+          <h3>Add a new task</h3>
+          <div class="panel-subtitle">The form sends a POST request to your API Gateway endpoint.</div>
+
+          <form id="taskForm">
+            <div class="form-grid">
+              <div class="field full">
+                <label for="taskName">Task name</label>
+                <input id="taskName" required placeholder="e.g. Study AWS Lambda" />
+              </div>
+
+              <div class="field">
+                <label for="taskDate">Date</label>
+                <input id="taskDate" type="date" required />
+              </div>
+
+              <div class="field">
+                <label for="priority">Priority</label>
+                <select id="priority">
+                  <option value="HIGH">High</option>
+                  <option value="MEDIUM" selected>Medium</option>
+                  <option value="LOW">Low</option>
+                </select>
+              </div>
+
+              <div class="field">
+                <label for="startTime">Start time</label>
+                <input id="startTime" type="time" required />
+              </div>
+
+              <div class="field">
+                <label for="endTime">End time</label>
+                <input id="endTime" type="time" required />
+              </div>
+
+              <div class="field full">
+                <label for="reminderTime">Reminder time</label>
+                <input id="reminderTime" type="time" required />
+              </div>
+            </div>
+
+            <div class="checkbox-row">
+              <input id="fixedEvent" type="checkbox" />
+              <label for="fixedEvent" style="margin:0;">Fixed event (do not reschedule)</label>
+            </div>
+
+            <button class="btn btn-primary" type="submit" id="submitBtn">Add Task</button>
+          </form>
+        </div>
+
+        <div class="panel" id="tasks">
+          <div class="task-header">
+            <div>
+              <h3>My tasks</h3>
+              <div class="panel-subtitle" style="margin-bottom:0;">Loaded from DynamoDB through your GET API.</div>
+            </div>
+            <button class="btn btn-soft" id="refreshBtn">Refresh</button>
+          </div>
+
+          <div class="task-list" id="taskList">
+            <div class="empty">Loading tasks...</div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // Your existing HTTP API base URL.
+    const API_BASE_URL = "https://e07d9bzzbg.execute-api.us-east-1.amazonaws.com";
+    const USER_ID = "demo-user";
+
+    const taskForm = document.getElementById("taskForm");
+    const taskList = document.getElementById("taskList");
+    const submitBtn = document.getElementById("submitBtn");
+    const refreshBtn = document.getElementById("refreshBtn");
+    const toast = document.getElementById("toast");
+
+    function showToast(message) {
+      toast.textContent = message;
+      toast.classList.add("show");
+      clearTimeout(window.toastTimer);
+      window.toastTimer = setTimeout(() => toast.classList.remove("show"), 2800);
+    }
+
+    function calculateDuration(start, end) {
+      const [sh, sm] = start.split(":").map(Number);
+      const [eh, em] = end.split(":").map(Number);
+      const startMinutes = sh * 60 + sm;
+      const endMinutes = eh * 60 + em;
+      return endMinutes - startMinutes;
+    }
+
+    function priorityClass(priority = "") {
+      return priority.toLowerCase();
+    }
+
+    function escapeHtml(value = "") {
+      return String(value)
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+
+    function updateStats(tasks) {
+      const completed = tasks.filter(t => t.status === "COMPLETED").length;
+      document.getElementById("totalCount").textContent = tasks.length;
+      document.getElementById("completedCount").textContent = completed;
+      document.getElementById("pendingCount").textContent = tasks.length - completed;
+    }
+
+    function renderTasks(tasks) {
+      updateStats(tasks);
+
+      if (!tasks.length) {
+        taskList.innerHTML = '<div class="empty">No tasks yet. Add your first task.</div>';
+        return;
+      }
+
+      tasks.sort((a, b) => {
+        const da = `${a.taskDate || ""} ${a.startTime || ""}`;
+        const db = `${b.taskDate || ""} ${b.startTime || ""}`;
+        return da.localeCompare(db);
+      });
+
+      taskList.innerHTML = tasks.map(task => {
+        const isCompleted = task.status === "COMPLETED";
+        return `
+          <article class="task">
+            <div>
+              <div class="task-title">${escapeHtml(task.taskName)}</div>
+              <div class="task-meta">
+                <span>${escapeHtml(task.taskDate)}</span>
+                <span>${escapeHtml(task.startTime)}–${escapeHtml(task.endTime)}</span>
+                <span>${escapeHtml(task.durationMinutes)} min</span>
+                ${task.fixedEvent ? "<span>Fixed</span>" : ""}
+              </div>
+            </div>
+
+            <div class="badges">
+              <span class="badge ${priorityClass(task.priority)}">${escapeHtml(task.priority)}</span>
+              <span class="badge ${isCompleted ? "completed" : "pending"}">${isCompleted ? "Completed" : "Pending"}</span>
+            </div>
+
+            <div class="task-actions">
+              ${isCompleted ? "" : `
+                <button class="btn btn-soft"
+                  onclick="markCompleted('${escapeHtml(task.taskID)}')">
+                  Mark complete
+                </button>
+              `}
+            </div>
+          </article>
+        `;
+      }).join("");
+    }
+
+    async function loadTasks() {
+      taskList.classList.add("loading");
+
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/task?userID=${encodeURIComponent(USER_ID)}`
+        );
+
+        if (!response.ok) {
+          throw new Error(`GET failed with status ${response.status}`);
+        }
+
+        const tasks = await response.json();
+        renderTasks(tasks);
+      } catch (error) {
+        console.error(error);
+        taskList.innerHTML = `
+          <div class="empty">
+            Could not load tasks.<br>
+            Check API Gateway CORS and browser console.
+          </div>
+        `;
+        showToast("Could not load tasks.");
+      } finally {
+        taskList.classList.remove("loading");
+      }
+    }
+
+    taskForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const startTime = document.getElementById("startTime").value;
+      const endTime = document.getElementById("endTime").value;
+      const durationMinutes = calculateDuration(startTime, endTime);
+
+      if (durationMinutes <= 0) {
+        showToast("End time must be later than start time.");
+        return;
+      }
+
+      const task = {
+        userID: USER_ID,
+        taskName: document.getElementById("taskName").value.trim(),
+        taskDate: document.getElementById("taskDate").value,
+        startTime,
+        endTime,
+        durationMinutes,
+        priority: document.getElementById("priority").value,
+        fixedEvent: document.getElementById("fixedEvent").checked,
+        reminderTime: document.getElementById("reminderTime").value
+      };
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Adding...";
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/task`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(task)
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.message || `POST failed with status ${response.status}`);
+        }
+
+        taskForm.reset();
+        showToast("Task created successfully.");
+        await loadTasks();
+      } catch (error) {
+        console.error(error);
+        showToast("Could not create task. Check CORS/API settings.");
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Add Task";
+      }
+    });
+
+    async function markCompleted(taskID) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/task`, {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            userID: USER_ID,
+            taskID,
+            status: "COMPLETED"
+          })
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.message || `PUT failed with status ${response.status}`);
+        }
+
+        showToast("Task marked as completed.");
+        await loadTasks();
+      } catch (error) {
+        console.error(error);
+        showToast("Could not update task.");
+      }
+    }
+
+    refreshBtn.addEventListener("click", loadTasks);
+
+    // Set today's date as a convenience.
+    const today = new Date();
+    const localDate = new Date(today.getTime() - today.getTimezoneOffset() * 60000)
+      .toISOString()
+      .split("T")[0];
+    document.getElementById("taskDate").value = localDate;
+
+    loadTasks();
+  </script>
+</body>
+</html>
